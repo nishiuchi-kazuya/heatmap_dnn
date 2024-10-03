@@ -1,0 +1,7 @@
+train/*
+val/*
+*.csv
+*.pth
+*.png
+docker/homedir/*
+!docker/homedir/.gitkeep
