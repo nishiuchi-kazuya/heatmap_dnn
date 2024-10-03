@@ -22,6 +22,29 @@ cd docker
         train/image_000003.png,train/label_000003.png 
         ```
 
+### (参考) ms coco datasetを用いたデータセットの作成
+- ms cocoのダウンロード
+    ```
+    cd ..
+    mkdir -p dataset/coco
+    cd dataset/coco
+    wget http://images.cocodataset.org/zips/train2017.zip
+    wget http://images.cocodataset.org/zips/val2017.zip
+    wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip
+    unzip train2017.zip
+    unzip val2017.zip
+    unzip annotations_trainval2017.zip
+    ```
+- docker環境の起動
+    ```
+    cd docker
+    ./run.sh
+    ```
+- 生成コードの実行
+    ```
+    python generate_mscoco_dataset.py
+    ```
+
 ## 学習
 - docker環境の起動
     ```
