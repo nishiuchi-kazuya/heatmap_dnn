@@ -49,6 +49,8 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'])
     parser.add_argument('--inputsize', type=int, nargs='*', default=None)
     parser.add_argument('--useamp', type=strtobool, default=0)
+    parser.add_argument('--arch', type=str, default='Unet')
+    parser.add_argument('--encoder', type=str, default='resnet18')
     args = parser.parse_args()
 
     inputsize = args.inputsize
@@ -69,10 +71,16 @@ if __name__ == '__main__':
     scaler = torch.amp.GradScaler(enabled=use_amp, init_scale=4096)
 
     # モデル定義
-    model = smp.Unet (
-        encoder_name="resnet18", 
-        encoder_weights="imagenet", 
-        classes=1, 
+    # model = smp.Unet (
+    #     encoder_name="resnet18", 
+    #     encoder_weights="imagenet", 
+    #     classes=1, 
+    # )
+    model = smp.create_model(
+        arch = args.arch,
+        encoder_name = args.encoder,
+        encoder_weights="imagenet",
+        classes=1
     )
     model.to(device)
     
