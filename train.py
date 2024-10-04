@@ -43,9 +43,22 @@ if __name__ == '__main__':
     parser.add_argument('--valcsv', type=str, default='val.csv')
     parser.add_argument('--batchsize', type=int, default=64)
     parser.add_argument('--epoch', type=int, default=10)
+    parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--output', type=str, default='')
     parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'])
+    parser.add_argument('--inputsize', type=int, nargs='*', default=None)
     args = parser.parse_args()
+
+    inputsize = args.inputsize
+    if type(inputsize) is list:
+        if len(inputsize) == 0:
+            inputsize = None
+        else :
+            if len(inputsize) == 1:
+                inputsize = inputsize+inputsize
+            elif len(inputsize) > 2:
+                inputsize = inputsize[:2]
+            inputsize = tuple(inputsize)
 
     device = args.device
     date_string = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
@@ -62,15 +75,15 @@ if __name__ == '__main__':
     # データローダ準備
     abs_traincsv_path = os.path.abspath(args.traincsv)
     abs_valcsv_path = os.path.abspath(args.valcsv)
-    trainset = HeadmapDatasets(args.traincsv, os.path.dirname(abs_traincsv_path))
-    valset = HeadmapDatasets(args.valcsv, os.path.dirname(abs_valcsv_path))
+    trainset = HeadmapDatasets(args.traincsv, os.path.dirname(abs_traincsv_path), input_size = inputsize)
+    valset = HeadmapDatasets(args.valcsv, os.path.dirname(abs_valcsv_path), input_size = inputsize)
     train_dataloader = torch.utils.data.DataLoader(trainset, batch_size = args.batchsize, shuffle = True, num_workers = 8)
     val_dataloader = torch.utils.data.DataLoader(valset, batch_size = 1, shuffle = False, num_workers = 2)
 
     # 評価関数，最適化関数定義
     loss_func = smp.losses.FocalLoss(mode='binary')
     metric_func = torch.nn.L1Loss()
-    optimizer = torch.optim.Adam([dict(params=model.parameters(), lr=5e-4)])
+    optimizer = torch.optim.Adam([dict(params=model.parameters(), lr=args.lr)])
 
     # 出力先ディレクトリ作成
     os.makedirs(outputdir, exist_ok=False)
@@ -91,6 +104,12 @@ if __name__ == '__main__':
             optimizer.step()
             # print(ep, i, loss.cpu().item())
             writer.add_scalar("training_loss", loss.cpu().item(), itr_num)
+            if itr_num % 100 == 0:
+                predicted_mask_show = torch.cat([predicted_mask, predicted_mask, predicted_mask], dim=1).sigmoid()
+                gt_masks_work = torch.unsqueeze(gt_masks,1)
+                gt_masks_show = torch.cat([gt_masks_work, gt_masks_work, gt_masks_work], dim=1)
+                img_sample = (torch.cat([images, gt_masks_show, predicted_mask_show], dim=3)*255).to(torch.uint8)
+                writer.add_images("train_example", img_sample, itr_num, dataformats='NCHW')
             itr_num += 1
             if False: # for debug
                 save_images = []
