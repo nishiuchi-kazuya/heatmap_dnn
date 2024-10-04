@@ -64,7 +64,7 @@ cd docker
     ```
     tensorboard --logdir . --bind_all
     ```
-
+    ブラウザで http://localhost:6006 へアクセスすると，training loss等のグラフを見ることができる．
 ## 推論
 - docker環境の起動
     ```
