@@ -3,4 +3,4 @@ RUN sed -i 's@archive.ubuntu.com@ftp.jaist.ac.jp/pub/Linux@g' /etc/apt/sources.l
 RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y git libopencv-dev
 RUN pip install pyyaml Pillow numpy opencv-contrib-python scikit-image
 RUN pip install segmentation-models-pytorch
-RUN pip install pandas
+RUN pip install pandas tensorboard

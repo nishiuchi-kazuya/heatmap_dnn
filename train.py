@@ -1,8 +1,11 @@
 
+import os
 import time
 import torch
 import segmentation_models_pytorch as smp
+from torch.utils.tensorboard import SummaryWriter
 
+import datetime
 import numpy as np
 import pandas as pd
 import cv2
@@ -10,13 +13,14 @@ import argparse
 
 # headmap用データセット
 class HeadmapDatasets(torch.utils.data.Dataset):
-    def __init__(self, csv_path):
+    def __init__(self, csv_path, csv_dir):
         self.df = pd.read_csv(csv_path, header=None)
+        self.dir = csv_dir
     def __len__(self):
         return self.df.shape[0]
     def __getitem__(self, idx):
-        image_path = self.df[0][idx]
-        label_path = self.df[1][idx]
+        image_path = os.path.join(self.dir, self.df[0][idx])
+        label_path = os.path.join(self.dir, self.df[1][idx])
         image = cv2.imread(image_path)
         label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
         image = image.astype(np.float32)/255
@@ -32,11 +36,16 @@ if __name__ == '__main__':
         add_help=True,  # -h/–help オプションの追加
     )
     parser.add_argument('--traincsv', type=str, default='train.csv')
+    parser.add_argument('--valcsv', type=str, default='val.csv')
     parser.add_argument('--batchsize', type=int, default=64)
     parser.add_argument('--epoch', type=int, default=10)
-    parser.add_argument('--output', type=str, default='output.png')
+    parser.add_argument('--output', type=str, default='')
+    parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'])
+    args = parser.parse_args()
 
-    DEVICE = "cuda"
+    device = args.device
+    date_string = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    outputdir = 'output-{}'.format(date_string) if args.output == '' else args.output
 
     # モデル定義
     model = smp.Unet (
@@ -44,26 +53,41 @@ if __name__ == '__main__':
         encoder_weights="imagenet", 
         classes=1, 
     )
-    model.to(DEVICE)
-
-    trainset = HeadmapDatasets(args.traincsv)
-    # valset = HeadmapDatasets('val.csv')
+    model.to(device)
+    
+    # データローダ準備
+    abs_traincsv_path = os.path.abspath(args.traincsv)
+    abs_valcsv_path = os.path.abspath(args.valcsv)
+    trainset = HeadmapDatasets(args.traincsv, os.path.dirname(abs_traincsv_path))
+    valset = HeadmapDatasets(args.valcsv, os.path.dirname(abs_valcsv_path))
     train_dataloader = torch.utils.data.DataLoader(trainset, batch_size = args.batchsize, shuffle = True, num_workers = 8)
-    # val_dataloader = torch.utils.data.DataLoader(valset, batch_size = 1, shuffle = False, num_workers = 2)
+    val_dataloader = torch.utils.data.DataLoader(valset, batch_size = 1, shuffle = False, num_workers = 2)
 
+    # 評価関数，最適化関数定義
     loss_func = smp.losses.FocalLoss(mode='binary')
+    metric_func = torch.nn.L1Loss()
     optimizer = torch.optim.Adam([dict(params=model.parameters(), lr=5e-4)])
 
+    # 出力先ディレクトリ作成
+    os.makedirs(outputdir, exist_ok=False)
+
+    # loggerロガー準備
+    writer = SummaryWriter(log_dir=outputdir)
+    itr_num = 0
+
     for ep in range(args.epoch):
+        # training 
         for i, (images, gt_masks) in enumerate(train_dataloader):
-            images = images.to(DEVICE)
-            gt_masks = gt_masks.to(DEVICE)
+            images = images.to(device)
+            gt_masks = gt_masks.to(device)
             optimizer.zero_grad()
             predicted_mask = model(images)
             loss = loss_func(predicted_mask, gt_masks)
             loss.backward()
             optimizer.step()
-            print(ep, i, loss.cpu().item())
+            # print(ep, i, loss.cpu().item())
+            writer.add_scalar("training_loss", loss.cpu().item(), itr_num)
+            itr_num += 1
             if False: # for debug
                 save_images = []
                 for j in range(3):
@@ -80,4 +104,26 @@ if __name__ == '__main__':
                 save_images2 = cv2.vconcat(save_images)
                 cv2.imwrite("test.png", save_images2)
                 # time.sleep(0.05)
-        torch.save(model, "./model_{0:03d}.pth".format(ep+1))
+
+        # val datasetを用いてloss, metricを確認
+        model.eval()
+        loss_list = []
+        metric_list = []
+        for i, (images, gt_masks) in enumerate(val_dataloader):
+            images = images.to(device)
+            gt_masks = gt_masks.to(device)
+            with torch.no_grad():
+                predicted_mask = model(images)
+                loss = loss_func(predicted_mask, gt_masks)
+                metric = metric_func(torch.squeeze(predicted_mask.sigmoid(), dim=1), gt_masks)
+            loss_list.append(loss.item())
+            metric_list.append(metric.item())
+        # print(ep+1, np.mean(loss_list), np.mean(metric_list))
+        
+        writer.add_scalar("validation/loss", np.mean(loss_list), ep+1)
+        writer.add_scalar("validation/metric", np.mean(metric_list), ep+1)
+        model.train()
+
+        torch.save(model, os.path.join(outputdir, "./model_{0:03d}.pth".format(ep+1)))
+    # end epoch loop
+    writer.close()

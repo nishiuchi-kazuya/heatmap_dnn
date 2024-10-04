@@ -1,0 +1,1 @@
+docker exec -it headmap_dnn bash 

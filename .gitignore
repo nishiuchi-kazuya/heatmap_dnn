@@ -5,3 +5,4 @@ val/*
 *.png
 docker/homedir/*
 !docker/homedir/.gitkeep
+output*
