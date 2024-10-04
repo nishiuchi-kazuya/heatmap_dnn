@@ -13,8 +13,8 @@ import argparse
 
 # headmap用データセット
 class HeadmapDatasets(torch.utils.data.Dataset):
-    def __init__(self, csv_path, csv_dir):
-        self.df = pd.read_csv(csv_path, header=None, input_size=None)
+    def __init__(self, csv_path, csv_dir, input_size=None):
+        self.df = pd.read_csv(csv_path, header=None)
         self.dir = csv_dir
         self.input_size = input_size
     def __len__(self):
