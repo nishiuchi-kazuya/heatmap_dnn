@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import cv2
 import argparse
+from setuptools._distutils.util import strtobool
 
 # headmap用データセット
 class HeadmapDatasets(torch.utils.data.Dataset):
@@ -47,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=str, default='')
     parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'])
     parser.add_argument('--inputsize', type=int, nargs='*', default=None)
+    parser.add_argument('--useamp', type=strtobool, default=False)
     args = parser.parse_args()
 
     inputsize = args.inputsize
@@ -63,6 +65,8 @@ if __name__ == '__main__':
     device = args.device
     date_string = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
     outputdir = 'output-{}'.format(date_string) if args.output == '' else args.output
+    use_amp = args.useamp
+    scaler = torch.amp.GradScaler(enabled=use_amp, init_scale=4096)
 
     # モデル定義
     model = smp.Unet (
@@ -98,14 +102,17 @@ if __name__ == '__main__':
             images = images.to(device)
             gt_masks = gt_masks.to(device)
             optimizer.zero_grad()
-            predicted_mask = model(images)
-            loss = loss_func(predicted_mask, gt_masks)
-            loss.backward()
+            with torch.autocast(device_type=device, enabled=use_amp):
+                predicted_mask = model(images)
+                loss = loss_func(predicted_mask, gt_masks)
+            # loss.backward()
+            scaler.scale(loss).backward()
             optimizer.step()
             # print(ep, i, loss.cpu().item())
             writer.add_scalar("training_loss", loss.cpu().item(), itr_num)
             if itr_num % 100 == 0:
-                predicted_mask_show = torch.cat([predicted_mask, predicted_mask, predicted_mask], dim=1).sigmoid()
+                predicted_mask_work = predicted_mask.sigmoid()
+                predicted_mask_show = torch.cat([predicted_mask_work,predicted_mask_work,predicted_mask_work], dim=1)
                 gt_masks_work = torch.unsqueeze(gt_masks,1)
                 gt_masks_show = torch.cat([gt_masks_work, gt_masks_work, gt_masks_work], dim=1)
                 img_sample = (torch.cat([images, gt_masks_show, predicted_mask_show], dim=3)*255).to(torch.uint8)

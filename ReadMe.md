@@ -21,6 +21,7 @@ cd docker
         train/image_000002.png,train/label_000002.png 
         train/image_000003.png,train/label_000003.png 
         ```
+- training用のセットとvalidation用のセットを作成する．
 
 ### (参考) ms coco datasetを用いたデータセットの作成
 - ms cocoのダウンロード
@@ -89,6 +90,10 @@ cd docker
         - https://qiita.com/mathlive/items/2a512831878b8018db02
     - pytorchの学習ループ
         - https://pytorch.org/tutorials/beginner/introyt/trainingyt.html
+- AMP (Automatic Mixed Precision examples)
+    - これは近年のGPU(RTX2000番以降)の性能を生かすための手法．半精度浮動小数(FP16)を用いるので，精度は悪くなるが，使用メモリ量が半減するため，バッチサイズを大きくとれる．
+        - https://tawara.hatenablog.com/entry/2021/05/31/220936
+        - https://qiita.com/bowdbeg/items/71c62cf8ef891d164ecd
 - OpenCV
     - OpenCVグレースケールからカラーマップへの変換
         - https://qiita.com/hakoyam/items/e312af5c3b9c9ae58fff
