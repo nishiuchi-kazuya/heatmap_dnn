@@ -6,3 +6,6 @@ val/*
 docker/homedir/*
 !docker/homedir/.gitkeep
 output*
+*tar
+*tar.gz
+*zip
