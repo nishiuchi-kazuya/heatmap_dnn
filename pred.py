@@ -16,19 +16,22 @@ if __name__ == '__main__':
     parser.add_argument('--input', type=str, default='val/image_00000000.png')
     parser.add_argument('--label', type=str, default='')
     parser.add_argument('--output', type=str, default='output.png')
+    parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'])
     args = parser.parse_args()
     alpha = 0.5
     model_path = args.model
     image_path = args.input
     output_path = args.output
+    device = args.device
 
     model = torch.load(model_path)
+    model.to(device)
     model.eval()
 
     image_cv = cv2.imread(image_path)
     image = np.transpose(image_cv, (2,0,1)).astype(np.float32)/255
     image = image[np.newaxis,:,:,:]
-    image = torch.Tensor(image).to("cuda")
+    image = torch.Tensor(image).to(device)
 
     pred = model(image)
     headmap_np = pred.sigmoid().cpu().detach().numpy()[0,0]
