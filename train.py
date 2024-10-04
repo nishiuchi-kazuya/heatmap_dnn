@@ -14,8 +14,9 @@ import argparse
 # headmap用データセット
 class HeadmapDatasets(torch.utils.data.Dataset):
     def __init__(self, csv_path, csv_dir):
-        self.df = pd.read_csv(csv_path, header=None)
+        self.df = pd.read_csv(csv_path, header=None, input_size=None)
         self.dir = csv_dir
+        self.input_size = input_size
     def __len__(self):
         return self.df.shape[0]
     def __getitem__(self, idx):
@@ -23,6 +24,9 @@ class HeadmapDatasets(torch.utils.data.Dataset):
         label_path = os.path.join(self.dir, self.df[1][idx])
         image = cv2.imread(image_path)
         label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
+        if self.input_size is not None:
+            image = cv2.resize(image, self.input_size)
+            label = cv2.resize(label, self.input_size, cv2.INTER_NEAREST)
         image = image.astype(np.float32)/255
         image = np.transpose(image, (2,0,1))
         label[label!=0]=1
