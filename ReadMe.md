@@ -53,7 +53,16 @@ cd docker
     ```
 - 学習スクリプトの実行(例)
     ```
-    python train.py --traincsv train.csv
+    python train.py --traincsv train.csv --valcsv val.csv
+    ```
+
+- 学習状況の確認(別ターミナルで確認)
+    ```
+    cd docker 
+    ./exec
+    ```
+    ```
+    tensorboard --logdir . --bind_all
     ```
 
 ## 推論
