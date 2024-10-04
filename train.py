@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=str, default='')
     parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'])
     parser.add_argument('--inputsize', type=int, nargs='*', default=None)
-    parser.add_argument('--useamp', type=strtobool, default=False)
+    parser.add_argument('--useamp', type=strtobool, default=0)
     args = parser.parse_args()
 
     inputsize = args.inputsize
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     device = args.device
     date_string = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
     outputdir = 'output-{}'.format(date_string) if args.output == '' else args.output
-    use_amp = args.useamp
+    use_amp = args.useamp == 1
     scaler = torch.amp.GradScaler(enabled=use_amp, init_scale=4096)
 
     # モデル定義
