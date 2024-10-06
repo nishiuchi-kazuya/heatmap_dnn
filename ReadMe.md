@@ -66,6 +66,25 @@ cd docker
     tensorboard --logdir . --bind_all
     ```
     ブラウザで http://localhost:6006 へアクセスすると，training loss等のグラフを見ることができる．
+### 学習スクリプトのオプション
+- `--traincsv` : トレーニング用データを記述したcsvファイル
+- `--valcsv` : バリデーション用データを記述したcsvファイル
+- `--batchsize` : ミニバッチサイズ (default : 64)
+- `--epoch` : 学習エポック数 (default : 10)
+- `--lr` : 学習率 (default : 5e-4)
+- `--output` : 出力ディレクトリ
+    - 指定がない場合は"output-yyyyMMddhhmmss"を作成する．
+    - 指定したディレクトリが既にある場合は，プログラムが止まるので注意が櫃お湯
+- `--device` : 学習を行うデバイス(cpu or cuda)を指定する (default : cuda)
+- `--inputsize` : 学習時に入力する画像サイズ
+    - 指定しない場合は画像サイズと同じ (default)
+    - 1つ指定した場合は1辺が指定したサイズの正方形とする
+    - 2つ指定した場合は(横，縦)のサイズの矩形とする．
+    - 3つ以上指定した場合は先頭2つの数を(横，縦)のサイズの矩形とし，それ以降は無視する．
+- `--useamp` : AMPを使うかを指定する．(default : false)
+- `--arch` : ネットワークのアーキテクチャを指定する．指定できる種類については[こちら](https://smp.readthedocs.io/en/latest/models.html)を参照．(default : Unet)
+- `--encoder` : ネットワークのエンコーダを指定する．指定できる種類については[こちら](https://smp.readthedocs.io/en/latest/encoders.html)を参照．(default : resnet18)
+
 ## 推論
 - docker環境の起動
     ```
