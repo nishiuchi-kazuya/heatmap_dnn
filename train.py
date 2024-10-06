@@ -4,6 +4,7 @@ import time
 import torch
 import segmentation_models_pytorch as smp
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 import datetime
 import numpy as np
@@ -94,7 +95,8 @@ if __name__ == '__main__':
 
     # 評価関数，最適化関数定義
     loss_func = smp.losses.FocalLoss(mode='binary')
-    metric_func = torch.nn.L1Loss()
+    metric_mae_func = torch.nn.L1Loss()
+    metric_mse_func = torch.nn.MSELoss()
     optimizer = torch.optim.Adam([dict(params=model.parameters(), lr=args.lr)])
 
     # 出力先ディレクトリ作成
@@ -104,64 +106,71 @@ if __name__ == '__main__':
     writer = SummaryWriter(log_dir=outputdir)
     itr_num = 0
 
-    for ep in range(args.epoch):
-        # training 
-        for i, (images, gt_masks) in enumerate(train_dataloader):
-            images = images.to(device)
-            gt_masks = gt_masks.to(device)
-            optimizer.zero_grad()
-            with torch.autocast(device_type=device, enabled=use_amp):
-                predicted_mask = model(images)
-                loss = loss_func(predicted_mask, gt_masks)
-            # loss.backward()
-            scaler.scale(loss).backward()
-            optimizer.step()
-            # print(ep, i, loss.cpu().item())
-            writer.add_scalar("training_loss", loss.cpu().item(), itr_num)
-            if itr_num % 100 == 0:
-                predicted_mask_work = predicted_mask.sigmoid()
-                predicted_mask_show = torch.cat([predicted_mask_work,predicted_mask_work,predicted_mask_work], dim=1)
-                gt_masks_work = torch.unsqueeze(gt_masks,1)
-                gt_masks_show = torch.cat([gt_masks_work, gt_masks_work, gt_masks_work], dim=1)
-                img_sample = (torch.cat([images, gt_masks_show, predicted_mask_show], dim=3)*255).to(torch.uint8)
-                writer.add_images("train_example", img_sample, itr_num, dataformats='NCHW')
-            itr_num += 1
-            if False: # for debug
-                save_images = []
-                for j in range(3):
-                    alpha = 0.5
-                    input_image = (images.cpu().numpy()[j]*255).astype(np.uint8).transpose((1,2,0))
-                    label_heatmap = (gt_masks.cpu().numpy()[j]*255).astype(np.uint8)
-                    pred_heatmap = (predicted_mask.cpu().detach().sigmoid().numpy()[j][0]*255).astype(np.uint8)
-                    pred_heatmap_color = cv2.applyColorMap(pred_heatmap, cv2.COLORMAP_JET)
-                    blend = cv2.addWeighted(input_image, alpha, pred_heatmap_color, 1-alpha, 0)
-                    # save_image = cv2.hconcat([input_image, cv2.cvtColor(label_heatmap, cv2.COLOR_GRAY2BGR), cv2.cvtColor(pred_heatmap, cv2.COLOR_GRAY2BGR)])
-                    # save_image = cv2.hconcat([input_image, cv2.cvtColor(label_heatmap, cv2.COLOR_GRAY2BGR), pred_heatmap_color])
-                    save_image = cv2.hconcat([input_image, cv2.cvtColor(label_heatmap, cv2.COLOR_GRAY2BGR), cv2.cvtColor(pred_heatmap, cv2.COLOR_GRAY2BGR), blend])
-                    save_images.append(save_image)
-                save_images2 = cv2.vconcat(save_images)
-                cv2.imwrite("test.png", save_images2)
-                # time.sleep(0.05)
+    with tqdm(range(args.epoch)) as pbar_epoch:
+        for ep in pbar_epoch:
+            pbar_epoch.set_description("[Epoch %d]" % (ep))
+            # training 
+            for i, (images, gt_masks) in tqdm(enumerate(train_dataloader), total=len(train_dataloader), leave=False):
+                images = images.to(device)
+                gt_masks = gt_masks.to(device)
+                optimizer.zero_grad()
+                with torch.autocast(device_type=device, enabled=use_amp):
+                    predicted_mask = model(images)
+                    loss = loss_func(predicted_mask, gt_masks)
+                # loss.backward()
+                scaler.scale(loss).backward()
+                optimizer.step()
+                # print(ep, i, loss.cpu().item())
+                writer.add_scalar("training_loss", loss.cpu().item(), itr_num)
+                if itr_num % 100 == 0:
+                    predicted_mask_work = predicted_mask.sigmoid()
+                    predicted_mask_show = torch.cat([predicted_mask_work,predicted_mask_work,predicted_mask_work], dim=1)
+                    gt_masks_work = torch.unsqueeze(gt_masks,1)
+                    gt_masks_show = torch.cat([gt_masks_work, gt_masks_work, gt_masks_work], dim=1)
+                    img_sample = (torch.cat([images, gt_masks_show, predicted_mask_show], dim=3)*255).to(torch.uint8)
+                    writer.add_images("train_example", img_sample, itr_num, dataformats='NCHW')
+                itr_num += 1
+                if False: # for debug
+                    save_images = []
+                    for j in range(3):
+                        alpha = 0.5
+                        input_image = (images.cpu().numpy()[j]*255).astype(np.uint8).transpose((1,2,0))
+                        label_heatmap = (gt_masks.cpu().numpy()[j]*255).astype(np.uint8)
+                        pred_heatmap = (predicted_mask.cpu().detach().sigmoid().numpy()[j][0]*255).astype(np.uint8)
+                        pred_heatmap_color = cv2.applyColorMap(pred_heatmap, cv2.COLORMAP_JET)
+                        blend = cv2.addWeighted(input_image, alpha, pred_heatmap_color, 1-alpha, 0)
+                        # save_image = cv2.hconcat([input_image, cv2.cvtColor(label_heatmap, cv2.COLOR_GRAY2BGR), cv2.cvtColor(pred_heatmap, cv2.COLOR_GRAY2BGR)])
+                        # save_image = cv2.hconcat([input_image, cv2.cvtColor(label_heatmap, cv2.COLOR_GRAY2BGR), pred_heatmap_color])
+                        save_image = cv2.hconcat([input_image, cv2.cvtColor(label_heatmap, cv2.COLOR_GRAY2BGR), cv2.cvtColor(pred_heatmap, cv2.COLOR_GRAY2BGR), blend])
+                        save_images.append(save_image)
+                    save_images2 = cv2.vconcat(save_images)
+                    cv2.imwrite("test.png", save_images2)
+                    # time.sleep(0.05)
 
-        # val datasetを用いてloss, metricを確認
-        model.eval()
-        loss_list = []
-        metric_list = []
-        for i, (images, gt_masks) in enumerate(val_dataloader):
-            images = images.to(device)
-            gt_masks = gt_masks.to(device)
-            with torch.no_grad():
-                predicted_mask = model(images)
-                loss = loss_func(predicted_mask, gt_masks)
-                metric = metric_func(torch.squeeze(predicted_mask.sigmoid(), dim=1), gt_masks)
-            loss_list.append(loss.item())
-            metric_list.append(metric.item())
-        # print(ep+1, np.mean(loss_list), np.mean(metric_list))
-        
-        writer.add_scalar("validation/loss", np.mean(loss_list), ep+1)
-        writer.add_scalar("validation/metric", np.mean(metric_list), ep+1)
-        model.train()
+            # val datasetを用いてloss, metricを確認
+            model.eval()
+            loss_list = []
+            metric_mae_list = []
+            metric_mse_list = []
+            for i, (images, gt_masks) in enumerate(val_dataloader):
+                images = images.to(device)
+                gt_masks = gt_masks.to(device)
+                with torch.no_grad():
+                    predicted_mask = model(images)
+                    loss = loss_func(predicted_mask, gt_masks)
+                    predicted_mask_sigmoid = predicted_mask.sigmoid()
+                    metric_mae = metric_mae_func(torch.squeeze(predicted_mask_sigmoid, dim=1), gt_masks)
+                    metric_mse = metric_mse_func(torch.squeeze(predicted_mask_sigmoid, dim=1), gt_masks)
+                loss_list.append(loss.item())
+                metric_mae_list.append(metric_mae.item())
+                metric_mse_list.append(metric_mse.item())
+            # print(ep+1, np.mean(loss_list), np.mean(metric_list))
+            
+            writer.add_scalar("validation/loss", np.mean(loss_list), ep+1)
+            writer.add_scalar("validation/metric/mae", np.mean(metric_mae_list), ep+1)
+            writer.add_scalar("validation/metric/mse", np.mean(metric_mse_list), ep+1)
+            model.train()
 
-        torch.save(model, os.path.join(outputdir, "./model_{0:03d}.pth".format(ep+1)))
+            torch.save(model, os.path.join(outputdir, "./model_{0:03d}.pth".format(ep+1)))
     # end epoch loop
     writer.close()
