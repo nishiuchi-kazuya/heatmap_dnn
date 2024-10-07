@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--useamp', type=strtobool, default=0)
     parser.add_argument('--arch', type=str, default='Unet')
     parser.add_argument('--encoder', type=str, default='resnet18')
+    parser.add_argument('--classnum', type=int, default=1)
     args = parser.parse_args()
 
     inputsize = args.inputsize
@@ -81,7 +82,7 @@ if __name__ == '__main__':
         arch = args.arch,
         encoder_name = args.encoder,
         encoder_weights="imagenet",
-        classes=1
+        classes=args.classnum
     )
     model.to(device)
     

@@ -84,6 +84,7 @@ cd docker
 - `--useamp` : AMPを使うかを指定する．(default : false)
 - `--arch` : ネットワークのアーキテクチャを指定する．指定できる種類については[こちら](https://smp.readthedocs.io/en/latest/models.html)を参照．(default : Unet)
 - `--encoder` : ネットワークのエンコーダを指定する．指定できる種類については[こちら](https://smp.readthedocs.io/en/latest/encoders.html)を参照．(default : resnet18)
+- `--classnum` : 出力クラス数を指定する．(default : 1)
 
 ## 推論
 - docker環境の起動
